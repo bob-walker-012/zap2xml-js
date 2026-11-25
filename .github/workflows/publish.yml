@@ -1,0 +1,112 @@
+name: Build and publish
+
+on:
+  push:
+    branches: [master, main]
+    tags: ["v*"]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  smoke-test:
+    name: Smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build test image
+        run: docker build -t zap2xml-js:test .
+
+      - name: Start fixture server
+        run: |
+          python3 testdata/fixture_server.py 8000 > fixture.log 2>&1 &
+          for i in $(seq 1 20); do curl -sf http://127.0.0.1:8000/__count && break || sleep 0.5; done
+
+      - name: Run one grab against the fixture
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p "$PWD/data"
+          docker run --rm --name zap2xml-js-test \
+            --add-host host.docker.internal:host-gateway \
+            -e ZAP2XML_BASE_URL=http://host.docker.internal:8000/api/grid \
+            -e LINEUP_ID=FIXTURE0 -e POSTAL_CODE=00000 \
+            -e TIMESPAN=6 -e RUN_ONCE=true \
+            -v "$PWD/data:/data" zap2xml-js:test 2>&1 | tee run.log
+
+      - name: Verify XMLTV output
+        run: |
+          test -s data/xmltv.xml
+          head -3 data/xmltv.xml
+          grep -q 'generator-info-name="jef/zap2xml"' data/xmltv.xml
+          CH=$(grep -c '<channel id=' data/xmltv.xml)
+          P=$(grep -c '<programme ' data/xmltv.xml)
+          echo "channels: $CH programmes: $P"
+          [ "$CH" -ge 4 ]
+          [ "$P" -ge 20 ]
+          test -s data/status.json
+          cat data/status.json
+
+      - name: Verify the request budget
+        run: |
+          REQS=$(python3 -c "import json,urllib.request;print(json.load(urllib.request.urlopen('http://127.0.0.1:8000/__count'))['requests'])")
+          echo "grid requests for a 6h grab: $REQS"
+          [ "$REQS" -le 3 ]
+
+  publish:
+    name: Build and push to GHCR
+    needs: smoke-test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Attest
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true

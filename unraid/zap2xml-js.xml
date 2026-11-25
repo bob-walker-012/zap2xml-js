@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>zap2xml-js</Name>
+  <Repository>ghcr.io/bob-walker-012/zap2xml-js:latest</Repository>
+  <Registry>https://github.com/bob-walker-012/zap2xml-js/pkgs/container/zap2xml-js</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/bob-walker-012/zap2xml-js/issues</Support>
+  <Project>https://github.com/bob-walker-012/zap2xml-js</Project>
+  <Overview>jef/zap2xml engine (MIT) in an Unraid-shaped container: writes the same XMLTV layout as the desktop build, batches the grid 6 hours per request and fires them in parallel, so a 15-day guide takes about 30 seconds.&#13;&#13;Guide lands at /mnt/user/appdata/zap2xml-js/xmltv.xml. Writes are atomic: a failed grab never replaces a good file. status.json shows the last run.</Overview>
+  <Category>Tools:Utilities MediaApp:Other</Category>
+  <WebUI/>
+  <TemplateURL>https://raw.githubusercontent.com/bob-walker-012/zap2xml-js/master/unraid/zap2xml-js.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/bob-walker-012/zap2xml-js/master/unraid/zap2xml-js.png</Icon>
+  <ExtraParams>--restart=unless-stopped</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="Output folder" Target="/data" Default="/mnt/user/appdata/zap2xml-js" Mode="rw" Description="xmltv.xml and status.json live here. Point Plex/Emby/Jellyfin at xmltv.xml." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/zap2xml-js</Config>
+  <Config Name="Output file" Target="OUTPUT_FILE" Default="/data/xmltv.xml" Mode="" Description="Full path of the guide file; must stay under /data." Type="Variable" Display="always" Required="false" Mask="false">/data/xmltv.xml</Config>
+  <Config Name="Lineup id" Target="LINEUP_ID" Default="USA-lineupId-DEFAULT" Mode="" Description="USA-XXXXX-X, or the OTA placeholder USA-lineupId-DEFAULT." Type="Variable" Display="always" Required="true" Mask="false">USA-lineupId-DEFAULT</Config>
+  <Config Name="Postal code" Target="POSTAL_CODE" Default="" Mode="" Description="ZIP/postal code for provider lookups." Type="Variable" Display="always" Required="true" Mask="false"></Config>
+  <Config Name="Country" Target="COUNTRY" Default="USA" Mode="" Description="USA or CAN." Type="Variable" Display="always" Required="false" Mask="false">USA</Config>
+  <Config Name="Timespan (hours)" Target="TIMESPAN" Default="360" Mode="" Description="Hours of guide per run; 360 = 15 days. Each 6 hours is one request." Type="Variable" Display="always" Required="false" Mask="false">360</Config>
+  <Config Name="Timezone" Target="TZ" Default="America/New_York" Mode="" Description="Container timezone." Type="Variable" Display="always" Required="false" Mask="false">America/New_York</Config>
+  <Config Name="Refresh seconds" Target="SLEEP_TIME" Default="21600" Mode="" Description="Seconds between runs. 21600 = 6 hours." Type="Variable" Display="advanced" Required="false" Mask="false">21600</Config>
+  <Config Name="PREF" Target="PREF" Default="" Mode="" Description="m (music), p (pay-per-view), h (HD), comma separated. Blank = default." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="User agent" Target="USER_AGENT" Default="" Mode="" Description="Pin a UA string. Blank = random real browser UA per run." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="Owner uid for the output files." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Owner gid for the output files." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+  <Config Name="UMASK" Target="UMASK" Default="022" Mode="" Description="File creation mask." Type="Variable" Display="advanced" Required="false" Mask="false">022</Config>
+</Container>
