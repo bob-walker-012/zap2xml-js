@@ -28,13 +28,14 @@ else
   RUNAS=""
 fi
 
-TMP="$OUTPUT_DIR/.xmltv.tmp"
+FINAL="$OUTPUT_FILE"          # where the guide belongs
+TMP="$OUTPUT_DIR/.xmltv.tmp"  # what the grabber writes (upstream prefers the env var over argv)
 
 write_status() {
   _ok=$1; _next=$2; _bytes=0
-  [ -f "$OUTPUT_FILE" ] && _bytes=$(wc -c < "$OUTPUT_FILE" | tr -d ' ')
+  [ -f "$FINAL" ] && _bytes=$(wc -c < "$FINAL" | tr -d ' ')
   cat > "$OUTPUT_DIR/status.json.tmp" <<EOF
-{"state":"$_ok","last_run":"$(date -u '+%Y-%m-%dT%H:%M:%SZ')","last_run_epoch":$(date +%s),"output":"$OUTPUT_FILE","bytes":$_bytes,"next_run_in_seconds":$_next,"hours_per_run":$TIMESPAN}
+{"state":"$_ok","last_run":"$(date -u '+%Y-%m-%dT%H:%M:%SZ')","last_run_epoch":$(date +%s),"output":"$FINAL","bytes":$_bytes,"next_run_in_seconds":$_next,"hours_per_run":$TIMESPAN}
 EOF
   mv -f "$OUTPUT_DIR/status.json.tmp" "$OUTPUT_DIR/status.json"
 }
@@ -44,19 +45,20 @@ while :; do
   write_status running 0
   log "Starting grab (lineup=$LINEUP_ID, postal=$POSTAL_CODE, ${TIMESPAN}h)"
 
-  ARGS="--lineupId=$LINEUP_ID --postalCode=$POSTAL_CODE --country=$COUNTRY --timespan=$TIMESPAN --outputFile=$TMP"
+  ARGS="--lineupId=$LINEUP_ID --postalCode=$POSTAL_CODE --country=$COUNTRY --timespan=$TIMESPAN"
   [ -n "$PREF" ] && ARGS="$ARGS --pref=$PREF"
   [ -n "$USER_AGENT" ] && ARGS="$ARGS --userAgent=$USER_AGENT"
 
+  # upstream reads OUTPUT_FILE from the environment before argv, so point it at the temp file
   # shellcheck disable=SC2086
-  $RUNAS node /app/dist/index.js $ARGS
+  env OUTPUT_FILE="$TMP" $RUNAS node /app/dist/index.js $ARGS
   RC=$?
 
   if [ "$RC" -eq 0 ] && [ -s "$TMP" ] && head -c 200 "$TMP" | grep -q "<tv "; then
-    mv -f "$TMP" "$OUTPUT_FILE"
-    CH=$(grep -c '<channel id=' "$OUTPUT_FILE" 2>/dev/null || echo 0)
-    PG=$(grep -c '<programme ' "$OUTPUT_FILE" 2>/dev/null || echo 0)
-    log "Guide ready: $CH channels, $PG programmes, $(du -h "$OUTPUT_FILE" | cut -f1) in $(( $(date +%s) - START ))s"
+    mv -f "$TMP" "$FINAL"
+    CH=$(grep -c '<channel id=' "$FINAL" 2>/dev/null || echo 0)
+    PG=$(grep -c '<programme ' "$FINAL" 2>/dev/null || echo 0)
+    log "Guide ready: $CH channels, $PG programmes, $(du -h "$FINAL" | cut -f1) in $(( $(date +%s) - START ))s"
     STATE=ok
   else
     rm -f "$TMP"
